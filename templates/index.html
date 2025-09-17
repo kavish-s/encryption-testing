@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AES Encryption Tester</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .main-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .upload-zone {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            background: #fff;
+            transition: border-color 0.2s;
+        }
+        .upload-zone:hover {
+            border-color: #0d6efd;
+        }
+        .table th {
+            font-weight: 600;
+            color: #495057;
+        }
+        .results-section {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .results-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <header class="text-center mb-5">
+            <h1 class="display-5 fw-bold text-primary mb-2">AES Encryption Tester</h1>
+            <p class="lead text-muted">Compare performance between Standard AES and Chunked AES encryption</p>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Upload Section -->
+        <div class="card mb-4">
+            <div class="card-body p-4">
+                <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+                    <div class="upload-zone mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-cloud-arrow-up text-primary mb-3" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
+                            <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
+                        </svg>
+                        <h5 class="mb-2">Drop your file here</h5>
+                        <p class="text-muted mb-3">or click to browse</p>
+                        <input type="file" name="file" id="fileInput" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                        Compare Encryption Methods
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if log_data and log_data|length > 0 %}
+        <!-- Results Section -->
+        <div class="results-section">
+            <!-- Comparison Table -->
+            <div class="card mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0">Encryption Comparison Results</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Filename</th>
+                                    <th>AES Time (s)</th>
+                                    <th>AES Size (KB)</th>
+                                    <th>Chunked AES Time (s)</th>
+                                    <th>Chunked AES Size (KB)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in log_data %}
+                                <tr>
+                                    <td>{{ entry.filename }}</td>
+                                    <td>{{ '%.4f'|format(entry.aes_time) }}</td>
+                                    <td>{{ '%.2f'|format(entry.aes_size / 1024) }}</td>
+                                    <td>{{ '%.4f'|format(entry.chunked_time) }}</td>
+                                    <td>{{ '%.2f'|format(entry.chunked_size / 1024) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Graph -->
+            <div class="card">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0">Performance Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="comparisonChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    {% if log_data and log_data|length > 0 %}
+    <script>
+        // Performance Graph Configuration
+        const logData = {{ log_data|tojson | safe }};
+        const aesData = logData.map(e => ({ x: e.aes_size / 1024, y: e.aes_time }));
+        const chunkedData = logData.map(e => ({ x: e.chunked_size / 1024, y: e.chunked_time }));
+
+        function linearRegression(data) {
+            const n = data.length;
+            if (n < 2) return null;
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            for (const pt of data) {
+                sumX += pt.x;
+                sumY += pt.y;
+                sumXY += pt.x * pt.y;
+                sumXX += pt.x * pt.x;
+            }
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            const xs = data.map(pt => pt.x);
+            const minX = Math.min(...xs);
+            const maxX = Math.max(...xs);
+            return [
+                { x: minX, y: slope * minX + intercept },
+                { x: maxX, y: slope * maxX + intercept }
+            ];
+        }
+
+        // Create Chart
+        const ctx = document.getElementById('comparisonChart').getContext('2d');
+        const aesTrend = linearRegression(aesData);
+        const chunkedTrend = linearRegression(chunkedData);
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'AES',
+                        data: aesData,
+                        backgroundColor: 'rgba(13, 110, 253, 0.5)',
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        showLine: false,
+                        fill: false,
+                        pointRadius: 6,
+                        type: 'scatter',
+                    },
+                    {
+                        label: 'Chunked AES',
+                        data: chunkedData,
+                        backgroundColor: 'rgba(220, 53, 69, 0.5)',
+                        borderColor: 'rgba(220, 53, 69, 1)',
+                        showLine: false,
+                        fill: false,
+                        pointRadius: 6,
+                        type: 'scatter',
+                    },
+                    ...(aesTrend ? [{
+                        label: 'AES Trend',
+                        data: aesTrend,
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        showLine: true,
+                        type: 'line',
+                    }] : []),
+                    ...(chunkedTrend ? [{
+                        label: 'Chunked AES Trend',
+                        data: chunkedTrend,
+                        borderColor: 'rgba(220, 53, 69, 1)',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        showLine: true,
+                        type: 'line',
+                    }] : [])
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'nearest'
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    title: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#212529',
+                        bodyColor: '#212529',
+                        borderColor: '#dee2e6',
+                        borderWidth: 1,
+                        padding: 12,
+                        boxPadding: 6,
+                        usePointStyle: true,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y.toFixed(4)}s @ ${context.parsed.x.toFixed(2)}KB`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'File Size (KB)',
+                            padding: {top: 10, bottom: 0},
+                            font: {
+                                size: 13,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            borderColor: '#dee2e6',
+                            color: '#e9ecef'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'Encryption Time (seconds)',
+                            padding: {top: 0, bottom: 10},
+                            font: {
+                                size: 13,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            borderColor: '#dee2e6',
+                            color: '#e9ecef'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Results Animation
+        document.addEventListener('DOMContentLoaded', function() {
+            const resultsSection = document.querySelector('.results-section');
+            if (resultsSection) {
+                setTimeout(() => {
+                    resultsSection.classList.add('visible');
+                }, 100);
+            }
+        });
+    </script>
+    {% endif %}
+
+    <script>
+        // Upload Form Handling
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            const spinner = this.querySelector('.spinner-border');
+            const button = this.querySelector('button[type="submit"]');
+            
+            spinner.classList.remove('d-none');
+            button.disabled = true;
+        });
+
+        // File Input Enhancement
+        const dropZone = document.querySelector('.upload-zone');
+        const fileInput = document.getElementById('fileInput');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('border-primary');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('border-primary');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+        }
+    </script>
+</body>
+</html>
